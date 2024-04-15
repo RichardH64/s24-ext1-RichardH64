@@ -6,10 +6,15 @@
  */
 
 #include <Application.h>
-#include <Images/Animation/GalaxyAnimation.h>
+
+#define TITLE_SCREEN_MAX_TIME 5.0
+
+
+extern const Graphics_Image GALAXY_IMAGE_008BPP_UNCOMP;
+
 
 //===BASE APPLICATION FUNCTIONS===//
-void Application_construct() {
+Application Application_construct() {
     Application app;
 
     // UART ATTRIBUTES
@@ -18,13 +23,14 @@ void Application_construct() {
 
     // FINITIE STATE MACHINE
     app.appFSMstate = TITLE_SCREEN;
+    app.mainMenuCursor1 = PLAYGAME;
+    app.mainMenuCursor2 = SPACEINVADERS;
 
     // APPLICATION TIME ATTRIBUTES
-    app.TimeSinceLastCall = 0;
-
-    app.titleScreenTime = 0;
+    app.timer_titleScreenTime = 0.0;
 
     // STATE REFRESH ATTRIBUTES
+    app.refreshTitleScreen = true;
     app.refreshMainMenuScreen = true;
 
     return app;
@@ -102,15 +108,15 @@ void Application_updateCommunications(Application* app_p, HAL* hal_p) {
  * @param hal_p:        A pointer to the main HAL object.
  * @param deltaTime:    A variable holding the change in time since the last update.
  */
-void Application_ScreenFSM(Application* app_p, HAL* hal_p, double deltaTime) {
+void Application_ScreenFSM(Application* app_p, HAL* hal_p, SystemClock* clk_p) {
     switch (app_p->appFSMstate) {
     case TITLE_SCREEN:
-        //Application_RenderTitleScreen(app_p, hal_p, deltaTime);
-        //Application_UpdateTitleScreen(app_p, hal_p, deltaTime);
+        Application_RenderTitleScreen(app_p, hal_p, clk_p);
+        Application_UpdateTitleScreen(app_p, hal_p, clk_p);
         break;
     case MAIN_MENU_SCREEN:
-        //Application_RenderMainScreen(app_p, hal_p, deltaTime);
-        //Application_UpdateMainScreen(app_p, hal_p, deltaTime);
+        Application_RenderMainScreen(app_p, hal_p, clk_p);
+        Application_UpdateMainScreen(app_p, hal_p, clk_p);
         break;
     case INSTRUCTIONS_SCREEN:
         //Application_RenderInstructionScreen(app_p, hal_p, deltaTime);
@@ -143,43 +149,141 @@ void Application_ScreenFSM(Application* app_p, HAL* hal_p, double deltaTime) {
  * @param app_p:  A pointer to the main Application object.
  * @param hal_p:  A pointer to the main HAL object.
  */
-void Application_loop(Application* app_p, HAL* hal_p) {
+void Application_loop(Application* app_p, HAL* hal_p, SystemClock* clk_p) {
     if (Button_isTapped(&hal_p->boosterpackS2) || app_p->firstCall) {
       Application_updateCommunications(app_p, hal_p);
     }
 
-    double deltaTime = Helper_GetDT();
-
-    Application_ScreenFSM(app_p, hal_p, deltaTime);
+    Application_ScreenFSM(app_p, hal_p, clk_p);
 }
 
 
 //===STATE FUNCTIONS===//
-void Application_UpdateTitleScreen(Application* app_p, HAL* hal_p, double deltaTime) {
-    app_p->timer_titleScreenTime += deltaTime;
+void Application_UpdateTitleScreen(Application* app_p, HAL* hal_p, SystemClock* clk_p) {
+    app_p->timer_titleScreenTime += clk_p->deltaTime;
 
     //APPLICATION_MAX_TITLE_SCREEN_TIME
-    if (app_p->timer_titleScreenTime >=  3) {
+    if (app_p->timer_titleScreenTime >  TITLE_SCREEN_MAX_TIME) {
         app_p->appFSMstate = MAIN_MENU_SCREEN;
         app_p->refreshMainMenuScreen = true;
         GFX_clear(&hal_p->gfx);
     }
 }
 
-void Application_RenderTitleScreen(Application* app_p, HAL* hal_p, double deltaTime) {
-    if (app_p->timer_titleScreenTime >= 2) {
+void Application_RenderTitleScreen(Application* app_p, HAL* hal_p, SystemClock* clk_p) {
+    if (app_p->refreshTitleScreen) {
+        Graphics_drawImage(&hal_p->gfx.context, &GALAXY_IMAGE_008BPP_UNCOMP, 0, 0);
+        app_p->refreshTitleScreen = false;
     }
-    else if (app_p->timer_titleScreenTime >= 1) {
-
-    }
-    else {
-
-    }
-
-    Graphics_drawImage(&hal_p->gfx.context, getGalaxyImageToRender(app_p->timer_titleScreenTime), 0, 0);
-
 }
 
+/**
+ * [Description Here]
+ *
+ * @param app_p:  A pointer to the main Application object.
+ * @param hal_p:  A pointer to the main HAL object
+ */
+void Application_UpdateMainScreen(Application* app_p, HAL* hal_p, SystemClock* clk_p) {
+    if (Joystick_isTappedUp(&hal_p->joystick)) {
+        uint32_t newCursorPosition = Helper_CircularDecrement((uint32_t)app_p->mainMenuCursor1, NUM_CURSOR_STATES_1);
+        app_p->mainMenuCursor1 = (MainMenuCursor1)newCursorPosition;
+    }
+    else if (Joystick_isTappedDown(&hal_p->joystick)) {
+        uint32_t newCursorPosition = Helper_CircularIncrement((uint32_t)app_p->mainMenuCursor1, NUM_CURSOR_STATES_1);
+        app_p->mainMenuCursor1 = (MainMenuCursor1)newCursorPosition;
+    }
+
+    if (Button_isTapped(&hal_p->boosterpackJS)) {
+        GFX_clear(&hal_p->gfx);
+        switch (app_p->mainMenuCursor1) {
+        case PLAYGAME:
+            switch(app_p->mainMenuCursor2) {
+            case SPACEINVADERS:
+                app_p->appFSMstate = GAME_SCREEN_SPACE_INVADERS;
+                break;
+            }
+            //app_p->refreshGameScreen = true;
+            break;
+        case VIEWINSTRUCTIONS:
+            switch(app_p->mainMenuCursor2) {
+            case SPACEINVADERS:
+                app_p->appFSMstate = INSTRUCTIONS_SCREEN_SPACE_INVADERS;
+                break;
+            }
+           // app_p->refreshInstructionScreen = true;
+            break;
+        case VIEWHIGHSCORE:
+            switch(app_p->mainMenuCursor2) {
+            case SPACEINVADERS:
+                app_p->appFSMstate = HIGH_SCORE_SCREEN_SPACE_INVADERS;
+                break;
+            }
+            //app_p->refreshHighScoreScreen = true;
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+
+/**
+ * [Description Here]
+ *
+ * @param app_p:  A pointer to the main Application object.
+ * @param hal_p:  A pointer to the main HAL object
+ */
+void Application_RenderMainScreen(Application* app_p, HAL* hal_p, SystemClock* clk_p) {
+    static MainMenuCursor1 currentCursor1 = PLAYGAME;
+    static MainMenuCursor2 currentCursor2 = SPACEINVADERS;
+
+    if (currentCursor1 != app_p->mainMenuCursor1 || app_p->refreshMainMenuScreen) {
+        currentCursor1 = app_p->mainMenuCursor1;
+
+        GFX_print(&hal_p->gfx, " ", 6, 2);
+        GFX_print(&hal_p->gfx, " ", 7, 2);
+        GFX_print(&hal_p->gfx, " ", 8, 2);
+
+        switch (currentCursor1) {
+        case PLAYGAME:
+            GFX_print(&hal_p->gfx, ">", 6, 2);
+            break;
+        case VIEWINSTRUCTIONS:
+            GFX_print(&hal_p->gfx, ">", 7, 2);
+            break;
+        case VIEWHIGHSCORE:
+            GFX_print(&hal_p->gfx, ">", 8, 2);
+            break;
+        default:
+            break;
+        }
+    }
+
+    if (currentCursor2 != app_p->mainMenuCursor2 || app_p->refreshMainMenuScreen) {
+        currentCursor2 = app_p->mainMenuCursor2;
+
+        GFX_print(&hal_p->gfx, "                                   ", 12, 0);
+
+        switch(app_p->mainMenuCursor2) {
+        case SPACEINVADERS:
+            GFX_print(&hal_p->gfx, "Space Invaders", 12, 4);
+            break;
+        default:
+            break;
+        }
+    }
+
+
+
+    if (app_p->refreshMainMenuScreen) {
+        GFX_print(&hal_p->gfx, "Play ECE Surfers", 6, 3);
+        GFX_print(&hal_p->gfx, "Instructions"    , 7, 3);
+        GFX_print(&hal_p->gfx, "View High Scores", 8, 3);
+
+        GFX_print(&hal_p->gfx, "< O >", 11, 9);
+        app_p->refreshMainMenuScreen = false;
+    }
+}
 
 
 //===HELPER FUNCTIONS===//
@@ -193,13 +297,6 @@ void Helper_printToUART(HAL* hal_p, char* string, bool newLine) {
         UART_sendChar(&hal_p->uart, '\r');
         UART_sendChar(&hal_p->uart, '\n');
     }
-}
-
-double Helper_GetDT(Application* app_p) {
-    double timeSinceApplicationConstruct = SWTimer_elapsedTimeUS(&app_p->ApplicationTimer) / 1000000.0;
-    double deltaTime = timeSinceApplicationConstruct - app_p->TimeSinceLastCall;
-    app_p->TimeSinceLastCall = timeSinceApplicationConstruct;
-    return deltaTime;
 }
 
 uint32_t Helper_CircularIncrement(uint32_t value, uint32_t maximum) {

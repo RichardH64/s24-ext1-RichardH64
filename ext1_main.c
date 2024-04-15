@@ -1,5 +1,6 @@
 #include <ti/devices/msp432p4xx/driverlib/driverlib.h>
 
+#include <SystemClock.h>
 #include <Application.h>
 
 // Non-blocking check. Whenever Launchpad S1 is pressed, LED1 turns on.
@@ -26,13 +27,16 @@ int main() {
   // Initialize the main Application object and HAL object
   HAL hal = HAL_construct();
   Application app = Application_construct();
+  SystemClock clk = SystemClock_construct();
 
   // Do not remove this line. This is your non-blocking check.
   InitNonBlockingLED();
   while (true) {
+    SystemClock_UpdateClock(&clk);
+
     // Do not remove this line. This is your non-blocking check.
     PollNonBlockingLED();
     HAL_refresh(&hal);
-    Application_loop(&app, &hal);
+    Application_loop(&app, &hal, &clk);
   }
 }

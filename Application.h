@@ -9,18 +9,40 @@
 #define APPLICATION_H_
 
 #include <HAL/HAL.h>
+#include <SystemClock.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 
 enum _APPLICATION_FSM_STATES {
     TITLE_SCREEN,
     MAIN_MENU_SCREEN,
     INSTRUCTIONS_SCREEN,
+    INSTRUCTIONS_SCREEN_SPACE_INVADERS,
     GAME_SCREEN,
+    GAME_SCREEN_SPACE_INVADERS,
     GAME_OVER_SCREEN,
     HIGH_SCREEN,
+    HIGH_SCORE_SCREEN_SPACE_INVADERS,
     NUM_SCREENS
 };
 typedef enum _APPLICATION_FSM_STATES ApplicationFSMstates;
+
+enum _MAIN_MENU_CURSOR_1 {
+    PLAYGAME,
+    VIEWINSTRUCTIONS,
+    VIEWHIGHSCORE,
+    NUM_CURSOR_STATES_1
+};
+typedef enum _MAIN_MENU_CURSOR_1 MainMenuCursor1;
+
+enum _MAIN_MENU_CURSOR_2 {
+    SPACEINVADERS,
+    NUM_CURSOR_STATES_2
+};
+typedef enum _MAIN_MENU_CURSOR_2 MainMenuCursor2;
+
 
 struct _Application {
     // UART ATTRIBUTES
@@ -29,15 +51,17 @@ struct _Application {
 
     // FINITIE STATE MACHINE
     ApplicationFSMstates appFSMstate;
+    MainMenuCursor1 mainMenuCursor1;
+    MainMenuCursor2 mainMenuCursor2;
 
-    // APPLICATION TIME ATTRIBUTES
-    double TimeSinceLastCall;
-    SWTimer ApplicationTimer;
-
+    // TIMER ATTRIBUTES
     double timer_titleScreenTime;
 
     // STATE REFRESH ATTRIBUTES
+    bool refreshTitleScreen;
     bool refreshMainMenuScreen;
+
+
 };
 typedef struct _Application Application;
 
@@ -50,24 +74,24 @@ Application Application_construct();
 void Application_updateCommunications(Application* app_p, HAL* hal_p);
 
 // Called once per sub-loop of the application loop
-void Application_ScreenFSM(Application* app_p, HAL* hal_p, double deltaTime);
+void Application_ScreenFSM(Application* app_p, HAL* hal_p, SystemClock* clk_p);
 
 // Called once per super-loop of the main application.
-void Application_loop(Application* app_p, HAL* hal_p);
+void Application_loop(Application* app_p, HAL* hal_p, SystemClock* clk_p);
 
 
 //===STATE FUNCTIONS===//
 // Updates the Title Screen
-void Application_UpdateTitleScreen(Application* app_p, HAL* hal_p, double deltaTime);
+void Application_UpdateTitleScreen(Application* app_p, HAL* hal_p, SystemClock* clk_p);
 
 // Renders the Title Screen
-void Application_RenderTitleScreen(Application* app_p, HAL* hal_p, double deltaTime);
+void Application_RenderTitleScreen(Application* app_p, HAL* hal_p, SystemClock* clk_p);
 
 // Updates the Main Screen
-void Application_UpdateMainScreen(Application* app_p, HAL* hal_p, double deltaTime);
+void Application_UpdateMainScreen(Application* app_p, HAL* hal_p, SystemClock* clk_p);
 
 // Renders the Main Screen
-void Application_RenderMainScreen(Application* app_p, HAL* hal_p, double deltaTime);
+void Application_RenderMainScreen(Application* app_p, HAL* hal_p, SystemClock* clk_p);
 
 // Updates the Instruction Screen
 void Application_UpdateInstructionScreen(Application* app_p, HAL* hal_p, double deltaTime);
@@ -97,9 +121,6 @@ void Application_RenderHighScoreScreen(Application* app_p, HAL* hal_p, double de
 //===HELPER FUNCTIONS===//
 // Prints the given string to the UART screen
 void Helper_printToUART(HAL* hal_p, char* string, bool newLine);
-
-// Gets the change in time since the last update
-double Helper_GetDT(Application* app_p);
 
 // Circularly increments
 uint32_t Helper_CircularIncrement(uint32_t value, uint32_t maximum);
